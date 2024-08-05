@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model File {
+  id             String   @id @default(uuid())
+  url            String
+  mimetype       String
+  size           Int
+  car_id         String
+  created_at     DateTime @default(now())
+  last_edited_at DateTime @updatedAt
+
+  Car Car @relation(fields: [car_id], references: [id])
+}
+
+model User {
+  id                    String    @id @default(uuid())
+  email                 String    @unique
+  password              String
+  full_name             String
+  phone                 String
+  avatar                String?
+  role                  Role
+  emailVerified         Boolean   @default(false)
+  emailVerifiedToken    String?
+  emailVerifiedExpiresAt DateTime?
+  created_at            DateTime  @default(now())
+  last_edited_at        DateTime  @updatedAt
+  isActive              Boolean   @default(false)
+  tokens                Token[]
+  emailVerifications    EmailVerification[]
+
+  companies             Company[] @relation("UserOwnedCompany")
+  Transactions          Transaction[]
+  CreatedTransactions   Transaction[] @relation("CreatedBy")
+  EditedTransactions    Transaction[] @relation("LastEditedBy")
+}
+
+model Token {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model EmailVerification {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+}
+
+model Company {
+  id             String   @id @default(uuid())
+  name           String
+  ownerId        String
+  owner          User     @relation("UserOwnedCompany", fields: [ownerId], references: [id])
+  logo           String?
+  createdAt      DateTime @default(now())
+  lastEditedAt   DateTime @updatedAt
+
+  Models         Model[]
+  Cars           Car[]
+  Transactions   Transaction[]
+}
+
+model Model {
+  id             String   @id @default(uuid())
+  name           String
+  company_id     String
+  created_at     DateTime @default(now())
+  last_edited_at DateTime @updatedAt
+
+  Company Company @relation(fields: [company_id], references: [id])
+  Cars    Car[]
+}
+
+model Car {
+  id             String   @id @default(uuid())
+  name           String
+  model_id       String
+  company_id     String
+  info           String?
+  created_at     DateTime @default(now())
+  last_edited_at DateTime @updatedAt
+
+  Model        Model         @relation(fields: [model_id], references: [id])
+  Company      Company       @relation(fields: [company_id], references: [id])
+  Files        File[]
+  Transactions Transaction[]
+}
+
+model Transaction {
+  id             String            @id @default(uuid())
+  company_id     String
+  user_id        String
+  user_data      Json
+  car_id         String
+  car_data       Json
+  price          Float
+  start_date     DateTime
+  end_date       DateTime
+  status         TransactionStatus
+  created_at     DateTime          @default(now())
+  last_edited_at DateTime          @updatedAt
+  created_by     String
+  last_edited_by String
+
+  Company      Company @relation(fields: [company_id], references: [id])
+  User         User    @relation(fields: [user_id], references: [id])
+  Car          Car     @relation(fields: [car_id], references: [id])
+  CreatedBy    User    @relation("CreatedBy", fields: [created_by], references: [id])
+  LastEditedBy User    @relation("LastEditedBy", fields: [last_edited_by], references: [id])
+}
+
+enum Role {
+  Admin
+  Owner
+  Supervisor
+  Client
+  User
+}
+
+enum TransactionStatus {
+  debit
+  credit
+}
