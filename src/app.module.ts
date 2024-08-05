@@ -30,12 +30,6 @@ import { MailerModule } from '@nestjs-modules/mailer';
             user: configService.get<string>('EMAIL_USER'),
             pass: configService.get<string>('EMAIL_PASS'),
           },
-          // host: "sandbox.smtp.mailtrap.io",
-          // port: 2525,
-          // auth: {
-          //   user: "fbe140f53c5e77",
-          //   pass: "9611bfb33669b9"
-          // }
         },
         defaults: {
           from: "No reply officialbegzodbek@gmail.com"
