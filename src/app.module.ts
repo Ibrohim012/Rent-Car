@@ -49,13 +49,6 @@ import { EmailVerificationService } from './email-verification/email-verificatio
       }),
       inject: [ConfigService],
     }),
-    // TelegrafModule.forRootAsync({
-    //   imports: [ConfigModule],
-    //   useFactory: async (configService: ConfigService) => ({
-    //     token: configService.get<string>('TELEGRAM_BOT_TOKEN'),
-    //   }),
-    //   inject: [ConfigService],
-    // }),
     AuthModule,
     CompanyModule,
     UserModule,
