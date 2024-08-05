@@ -1,0 +1,13 @@
+DATABASE_URL="postgresql://postgres:mansur890@localhost:5432/bookapi"
+
+JWT_SECRET="unless.."
+
+MAIL_HOST=officialbegzodbek@gmail.com
+
+EMAIL_USER= officialbegzodbek@gmail.com
+
+EMAIL_PASS= zfyh ktnc klph lzpj
+
+FRONTEND_URL=http://localhost:3000
+
+TELEGRAM_BOT_TOKEN = 1228098790:AAGKkURTIYVSHHWBGy-5Tfl-dQlIYDZsqLg
