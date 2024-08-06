@@ -1,4 +1,3 @@
-// create-user.dto.ts
 import { IsEmail, IsNotEmpty, IsOptional, IsEnum, MinLength, IsString, IsPhoneNumber, IsDateString } from 'class-validator';
 import { Role } from '@prisma/client';
 
@@ -22,9 +21,10 @@ export class CreateUserDto {
   @IsEnum(Role)
   role: Role;
 
-  @IsNotEmpty()
-  emailVerificationToken: string;
+  @IsOptional()
+  emailVerificationToken?: string;
 
+  @IsOptional()
   @IsDateString()
-  emailVerificationTokenExpires: string;
+  emailVerificationTokenExpires?: string;
 }

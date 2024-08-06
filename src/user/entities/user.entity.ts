@@ -1,4 +1,5 @@
 import { Role } from '@prisma/client';
+import { Column } from 'typeorm';
 
 export class User {
   id: string;
@@ -8,9 +9,13 @@ export class User {
   phone: string;
   avatar?: string;
   role: Role;
-  emailVerified: boolean;
-  emailVerifiedToken?: string;
-  emailVerifiedExpiresAt?: Date;
+
+  @Column({ nullable: true })
+  emailVerificationToken?: string;
+
+  @Column({ nullable: true })
+  emailVerificationTokenExpires?: string;
+
   created_at: Date;
   last_edited_at: Date;
   isActive: boolean;

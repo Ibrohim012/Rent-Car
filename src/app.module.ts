@@ -9,9 +9,9 @@ import { TransactionModule } from './transaction/transaction.module';
 import { FileModule } from './file/file.module';
 import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { PrismaService } from './config/prisma.service';
+import { PrismaService } from './prisma/prisma.service';
 import { MailerModule } from '@nestjs-modules/mailer';
-
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
@@ -22,23 +22,14 @@ import { MailerModule } from '@nestjs-modules/mailer';
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
         transport: {
-          // host: configService.get<string>('EMAIL_HOST'),
-          service: "gmail",
-          // port: configService.get<number>('EMAIL_PORT'),
-          secure: false,
+          service: 'gmail',
           auth: {
             user: configService.get<string>('EMAIL_USER'),
             pass: configService.get<string>('EMAIL_PASS'),
           },
-          // host: "sandbox.smtp.mailtrap.io",
-          // port: 2525,
-          // auth: {
-          //   user: "fbe140f53c5e77",
-          //   pass: "9611bfb33669b9"
-          // }
         },
         defaults: {
-          from: "No reply officialbegzodbek@gmail.com"
+          from: 'No reply <officialbegzodbek@gmail.com>',
         },
       }),
       inject: [ConfigService],
@@ -50,6 +41,7 @@ import { MailerModule } from '@nestjs-modules/mailer';
     ModelModule,
     TransactionModule,
     FileModule,
+    EmailModule, 
     MulterModule.register({
       storage: diskStorage({
         destination: './uploads',
@@ -60,8 +52,6 @@ import { MailerModule } from '@nestjs-modules/mailer';
       }),
     }),
   ],
-  providers: [
-    PrismaService,
-  ],
+  providers: [PrismaService],
 })
 export class AppModule {}

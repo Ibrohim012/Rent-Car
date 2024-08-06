@@ -1,20 +1,26 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
 import { User } from 'src/user/entities/user.entity';
 import * as bcrypt from 'bcryptjs';
-import { MailerService } from '@nestjs-modules/mailer';
+import { CreateUserDto } from 'src/user/dto/create-user.dto';
+import * as jwt from 'jsonwebtoken';
+import { ConfigService } from '@nestjs/config';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { EmailService } from 'src/email/email.service';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private usersService: UserService,
+    private readonly prisma: PrismaService,
+    private userService: UserService,
     private jwtService: JwtService,
-    private mailerService: MailerService,
+    private emailService: EmailService,
+    private readonly configService: ConfigService,
   ) { }
 
-  async validateUser(username: string, pass: string): Promise<any> {
-    const user = await this.usersService.findOne(username);
+  async validateUser(email: string, pass: string): Promise<any> {
+    const user = await this.userService.findByEmail(email);
     if (user && await bcrypt.compare(pass, user.password)) {
       const { password, ...result } = user;
       return result;
@@ -22,54 +28,61 @@ export class AuthService {
     return null;
   }
 
-  async register(data): Promise<Partial<User | { message: string }>> {
-    const { full_name, phone, password, email, avatar, role } = data;
-    const existingUser = await this.usersService.findByFullName(full_name);
-    if (existingUser) {
-      throw new ConflictException('Username already exists');
-    }
-    const existingEmail = await this.usersService.findByEmail(email);
-    if (existingEmail) {
-      throw new ConflictException('Email already exists');
-    }
-    const emailTokenExp = new Date(Date.now() + 60 * 60 * 1000);
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const emailVerificationToken = this.jwtService.sign({ email }, { expiresIn: '1h' });
-    const user = await this.usersService.create({
-      full_name,
-      email,
-      phone,
-      avatar,
-      password: hashedPassword,
-      emailVerificationToken,
-      emailVerificationTokenExpires: emailTokenExp.toString(),
-      role,
+  async register(createUserDto: CreateUserDto): Promise<any> {
+    const user = await this.prisma.user.create({
+      data: {
+        ...createUserDto,
+        emailVerificationToken: '',
+        emailVerificationTokenExpires: new Date().toISOString(),
+        isActive: false,
+      },
     });
-  
-    await this.sendVerificationEmail(email, emailVerificationToken);
-  
-    return { message: "You have successfully signed up", full_name: user.full_name, email: user.email };
+
+    const token = this.jwtService.sign(
+      { email: user.email },
+      { secret: this.configService.get<string>('JWT_SECRET'), expiresIn: '1h' },
+    );
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerificationToken: token,
+        emailVerificationTokenExpires: new Date(Date.now() + 3600000).toISOString(),
+      },
+    });
+
+    await this.emailService.sendVerificationEmail({
+      id: user.id,
+      email: user.email,
+      full_name: user.full_name,
+    });
+
+    return {
+      message: 'You have successfully signed up. Please check your email for verification instructions.',
+      full_name: user.full_name,
+      email: user.email,
+    };
   }
-  
 
   async sendVerificationEmail(email: string, token: string) {
     const url = `http://localhost:3000/auth/verify-email?token=${token}`;
-    await this.mailerService.sendMail({
-      to: email,
-      subject: 'Email Verification',
-      html: `Please verify your email by clicking the following link: <a href=${url}>verify</a>`,
+    // Adjusted or remove 'sendVerificationEmail' if the user ID is needed
+    await this.emailService.sendVerificationEmail({
+      id: '', // You may need to pass the user id or adjust logic here
+      email,
+      full_name: '', // Adjust or remove if not needed
     });
   }
 
   async login(user: any) {
-    const payload = { username: user.username, sub: user.userId };
+    const payload = { full_name: user.full_name, sub: user.id };
     return {
       access_token: this.jwtService.sign(payload, { expiresIn: '1h' }),
     };
   }
 
   async resetPassword(email: string, oldPassword: string, newPassword: string, confirmNewPassword: string): Promise<string> {
-    const user = await this.usersService.findByEmail(email);
+    const user = await this.userService.findByEmail(email);
     if (!user) {
       throw new Error('User not found');
     }
@@ -80,51 +93,102 @@ export class AuthService {
       throw new Error("Passwords not matched.")
     }
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await this.usersService.updatePassword(user.id, hashedPassword);
+    await this.userService.updatePassword(user.id, hashedPassword);
     return "Password updated"
   }
 
   async confirmPassword(token: string, password: string, newPassword: string): Promise<string> {
     const { email } = this.jwtService.verify(token)
-    const existingEmail = await this.usersService.findByEmail(email);
+    const existingEmail = await this.userService.findByEmail(email);
     if (!existingEmail) {
       throw new ConflictException("Email doesn't exists");
     }
     if (password !== newPassword){
       throw new Error("Password didn't match try again")
     }
-    await this.usersService.confirmPassword(email, password)
+    await this.userService.confirmPassword(email, password)
     return "Password updated"
   }
 
+  async generateVerificationToken(email: string): Promise<string> {
+    const payload = { email };
+    const token = this.jwtService.sign(payload, { expiresIn: '1h' });
+    await this.userService.updateVerificationStatus(email, false);
+    return token;
+  }
+
   async forgotPassword(email: string): Promise<string> {
-    const user = await this.usersService.findByEmail(email);
+    const user = await this.userService.findByEmail(email);
     if (!user) {
       throw new Error('User not found');
     }
     const token = this.jwtService.sign({ email }, { expiresIn: '10m' });
-    await this.mailerService.sendMail({
-      to: email,
-      subject: 'Password resetion',
-      html: `http://localhost:3000/auth/verifypass?token=${token}`,
+    await this.emailService.sendVerificationEmail({
+      id: '', // You may need to pass the user id or adjust logic here
+      email,
+      full_name: '', // Adjust or remove if not needed
     });
     return token;
   }
 
+  async verifyEmail(token: string): Promise<void> {
+    try {
+      const payload = this.jwtService.verify(token, { secret: this.configService.get<string>('JWT_SECRET') });
+      const user = await this.userService.findByEmail(payload.email);
+
+      if (user.emailVerificationTokenExpires < new Date().toISOString()) {
+        throw new UnauthorizedException('Verification token has expired');
+      }
+
+      await this.userService.updateVerificationStatus(user.email, true);
+      await this.userService.confirmEmail(user.id);
+
+    } catch (error) {
+      throw new UnauthorizedException('Invalid or expired verification token');
+    }
+  }
+
   async verifyAndConfirmEmail(token: string): Promise<string> {
-    const { email } = this.jwtService.verify(token);
-    const user = await this.usersService.findByEmail(email);
-    if (!user) {
-      throw new ConflictException('User not found');
+    try {
+      const payload = this.jwtService.verify(token, {
+        secret: this.configService.get<string>('JWT_SECRET'),
+      });
+
+      const user = await this.userService.findByEmail(payload.email);
+      if (!user) {
+        throw new ConflictException('User not found');
+      }
+      if (user.emailVerificationToken !== token) {
+        throw new ConflictException('Invalid or expired verification token');
+      }
+      if (new Date() > new Date(user.emailVerificationTokenExpires)) {
+        throw new ConflictException('Verification token expired');
+      }
+
+      await this.prisma.user.update({
+        where: { email: payload.email },
+        data: {
+          emailVerificationToken: null,
+          emailVerificationTokenExpires: null,
+          isActive: true, // Activate the user
+        },
+      });
+
+      return "Your account has been confirmed and activated.";
+    } catch (error) {
+      throw new UnauthorizedException('Invalid or expired verification token');
     }
-    if (user.emailVerificationToken !== token) {
-      throw new ConflictException('Invalid or expired verification token');
+  }
+
+  async verifyEmailToken(token: string): Promise<string | null> {
+    try {
+      const decoded = this.jwtService.verify(token, {
+        secret: this.configService.get<string>('JWT_SECRET'),
+      });
+      return decoded.email;
+    } catch (error) {
+      return null;
     }
-    if (new Date() > new Date(user.emailVerificationTokenExpires)) {
-      throw new ConflictException('Verification token expired');
-    }
-    await this.usersService.confirmEmail(user.id);
-    return "Your account has been confirmed"
   }
 
   async renewTokens(user: any) {

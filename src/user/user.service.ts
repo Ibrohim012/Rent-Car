@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
-import { PrismaService } from 'src/config/prisma.service';
+import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from 'src/common/enums/role.enum';
 import { MailerService } from '@nestjs-modules/mailer';
+import { User } from './entities/user.entity';
 
 @Injectable()
 export class UserService {
@@ -25,6 +26,7 @@ export class UserService {
         emailVerificationToken,
         emailVerificationTokenExpires: emailVerificationTokenExpires.toString(),
         role: createUserDto.role,
+        isActive: false, // Ensure new users are not active by default
       },
     });
 
@@ -55,9 +57,8 @@ export class UserService {
     return user;
   }
 
-  async findByEmail(email: string) {
-    const user = await this.prisma.user.findUnique({ where: { email } });
-    return user;
+  async findByEmail(email: string): Promise<User | undefined> {
+    return this.prisma.user.findUnique({ where: { email } });
   }
 
   async findByFullName(full_name: string) {
@@ -96,12 +97,11 @@ export class UserService {
       where: { id: userId },
       data: {
         isActive: true,
-        emailVerificationTokenExpires: "",
-        emailVerificationToken: "",
+        emailVerificationTokenExpires: null,
+        emailVerificationToken: null,
       },
     });
   }
-  
 
   async updatePassword(userId: string, newPassword: string): Promise<void> {
     await this.prisma.user.update({
@@ -109,7 +109,6 @@ export class UserService {
       data: { password: newPassword },
     });
   }
-  
 
   async updateVerificationStatus(email: string, isVerified: boolean): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { email } });

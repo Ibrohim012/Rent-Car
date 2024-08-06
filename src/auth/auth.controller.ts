@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Request, UseGuards, Get, Query } from '@nestjs/common';
+import { Controller, Post, Body, Request, UseGuards, Get, Query, ConflictException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -40,10 +40,11 @@ export class AuthController {
   }
 
   @Get('verify-email')
-  async verifyAndConfirmEmail(@Query() body) {
-    const { token } = body;
-    return this.authService.verifyAndConfirmEmail(token);
-  }
+  async verifyEmail(@Query('token') token: string) {
+  await this.authService.verifyAndConfirmEmail(token);
+  return { message: 'Email successfully verified' };
+}
+
 
   @UseGuards(JwtAuthGuard)
   @Post('renew-tokens')
