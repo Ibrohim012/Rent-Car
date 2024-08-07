@@ -1,15 +1,21 @@
-import { Controller, Post, Body, Request, UseGuards, Get, Query, ConflictException } from '@nestjs/common';
+import { Controller, Post, Body, Request, UseGuards, Get, Query, ConflictException, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { CreateUserDto } from 'src/user/dto/create-user.dto';
+import { RolesGuard } from 'src/common/guards/roles.guard';
+import { Role } from 'src/common/enums/role.enum';
+import { Admin } from 'typeorm';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { VerifyEmailDto } from './dto/verify-email.dto';
 
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('register')
-  async register(@Body() body) {
-    return this.authService.register(body);
+  async register(@Body() createUserDto: CreateUserDto) {
+    return this.authService.register(createUserDto);
   }
 
   @UseGuards(LocalAuthGuard)
@@ -39,12 +45,18 @@ export class AuthController {
     return this.authService.confirmPassword(token, password, newPassword);
   }
 
-  @Get('verify-email')
-  async verifyEmail(@Query('token') token: string) {
-  await this.authService.verifyAndConfirmEmail(token);
-  return { message: 'Email successfully verified' };
-}
+  // @Post('verify-email')
+  // async verifyEmail(@Query('token') token: string, @Query('id') id: string) {
+  //   return this.authService.verifyEmail(token, id);
+  // }
 
+@Get('verify-email')
+  @HttpCode(HttpStatus.OK)
+  async verifyEmail(@Query() verifyEmailDto: VerifyEmailDto) {
+    const { token, email } = verifyEmailDto;
+    await this.authService.verifyEmail(token, email);
+    return { message: 'Email verified successfully' };
+  }
 
   @UseGuards(JwtAuthGuard)
   @Post('renew-tokens')

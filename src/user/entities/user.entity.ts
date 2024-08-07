@@ -14,7 +14,7 @@ export class User {
   emailVerificationToken?: string;
 
   @Column({ nullable: true })
-  emailVerificationTokenExpires?: string;
+  emailVerificationTokenExpires?: Date;
 
   created_at: Date;
   last_edited_at: Date;

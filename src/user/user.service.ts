@@ -5,6 +5,9 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from 'src/common/enums/role.enum';
 import { MailerService } from '@nestjs-modules/mailer';
 import { User } from './entities/user.entity';
+import * as bcrypt from 'bcrypt';
+import { UpdatePasswordDto } from './dto/update-password.dto';
+
 
 @Injectable()
 export class UserService {
@@ -24,9 +27,9 @@ export class UserService {
         password,
         phone,
         emailVerificationToken,
-        emailVerificationTokenExpires: emailVerificationTokenExpires.toString(),
+        emailVerificationTokenExpires: new Date(emailVerificationTokenExpires),
         role: createUserDto.role,
-        isActive: false, // Ensure new users are not active by default
+        isActive: false, 
       },
     });
 
@@ -65,6 +68,11 @@ export class UserService {
     const user = await this.prisma.user.findFirst({ where: { full_name } });
     return user;
   }
+  
+  async findById(id: string): Promise<User | null> {
+    return this.prisma.user.findUnique({ where: { id } });
+  }
+ 
 
   async update(id: string, updateUserDto: UpdateUserDto) {
     const user = await this.prisma.user.findUnique({ where: { id } });
@@ -78,6 +86,17 @@ export class UserService {
       data: updateUserDto,
     });
   }
+
+  async updateUser(userId: string, updateUserDto: UpdateUserDto) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...updateUserDto,
+        role: updateUserDto.role as Role, // Typecasting to avoid type mismatch
+      },
+    });
+  }
+
 
   async confirmPassword(email: string, newPassword: string): Promise<void> {
     await this.prisma.user.update({
@@ -103,23 +122,32 @@ export class UserService {
     });
   }
 
-  async updatePassword(userId: string, newPassword: string): Promise<void> {
+  async updatePassword(userId: string, updatePasswordDto: UpdatePasswordDto) {
+    const hashedPassword = await bcrypt.hash(updatePasswordDto.newPassword, 10);
     await this.prisma.user.update({
       where: { id: userId },
-      data: { password: newPassword },
+      data: { password: hashedPassword },
     });
   }
+  
 
-  async updateVerificationStatus(email: string, isVerified: boolean): Promise<void> {
-    const user = await this.prisma.user.findUnique({ where: { email } });
+  // async updateVerificationStatus(email: string, isVerified: boolean): Promise<void> {
+  //   const user = await this.prisma.user.findUnique({ where: { email } });
 
-    if (!user) {
-      throw new NotFoundException(`User with email ${email} not found`);
-    }
+  //   if (!user) {
+  //     throw new NotFoundException(`User with email ${email} not found`);
+  //   }
 
-    await this.prisma.user.update({
+  //   await this.prisma.user.update({
+  //     where: { email },
+  //     data: { isActive: isVerified },
+  //   });
+  // }
+
+  async updateVerificationStatus(email: string, isActive: boolean) {
+    return this.prisma.user.update({
       where: { email },
-      data: { isActive: isVerified },
+      data: { isActive },
     });
   }
 

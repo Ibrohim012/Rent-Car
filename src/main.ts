@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import * as session from 'express-session';
 import rateLimit from 'express-rate-limit';
 import { ValidationPipe } from '@nestjs/common';
 import * as cookieParser from 'cookie-parser';
@@ -16,12 +17,22 @@ async function bootstrap() {
   }));
   
   app.use(cookieParser());
+
   const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, 
+    windowMs: 15 * 60 * 1000,
     max: 100,
   });
 
   app.use(limiter);
+
+  app.use(
+    session({
+      secret: 'your-secret-key', // Replace with your own secret key
+      resave: false,
+      saveUninitialized: false,
+      cookie: { maxAge: 3600000 }, // 1 hour
+    }),
+  );
 
   const options = new DocumentBuilder()
     .setTitle('RentCar API')

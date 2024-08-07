@@ -28,10 +28,11 @@ model User {
   avatar                String?
   role                  Role
   emailVerificationToken String?
-  emailVerificationTokenExpires String?
+  emailVerificationTokenExpires DateTime? // DateTime sifatida qoldiring
   created_at            DateTime  @default(now())
   last_edited_at        DateTime  @updatedAt
   isActive              Boolean   @default(false)
+  emailVerified         Boolean   @default(false)
   tokens                Token[]
   emailVerifications    EmailVerification[]
   companies             Company[] @relation("UserOwnedCompany")
@@ -39,6 +40,8 @@ model User {
   CreatedTransactions   Transaction[] @relation("CreatedBy")
   EditedTransactions    Transaction[] @relation("LastEditedBy")
 }
+
+
 
 model Token {
   id        String   @id @default(uuid())
